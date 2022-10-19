@@ -28,6 +28,14 @@ class TestXYData(unittest.TestCase):
         fd = td.Spectrum(x, y)
         self.assertTrue(np.allclose(fd.pxx, y))
 
+    def test_derive(self):
+        x = np.linspace(0, 100, 1001)
+        y = np.random.random(len(x))
+        fd = td.Spectrum(x, y)
+        fd2 = fd.derive(td.XYData)
+        fd3 = fd2.derive(td.Spectrum)
+        self.assertTrue(np.allclose(fd.pxx, fd3.pxx))        
+
     def test_linrange(self):
         x = np.arange(10000)
         data = td.as_linrange(x)
@@ -40,7 +48,6 @@ class TestXYData(unittest.TestCase):
             pass
         else:
             self.assertTrue(False, 'Exception not raised')
-
 
     def test_pickle_LinRange(self):
         a = td.LinRange(20, 1)
