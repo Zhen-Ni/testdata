@@ -351,8 +351,6 @@ class XYData:
     information. The x data must be evenly spaced.
     """
 
-    __slots__ = ('_x', '_y', '_info')
-
     def __init__(self,
                  x: Iterable,
                  y: Iterable,
@@ -408,8 +406,6 @@ class Spectrum(XYData):
     It is a wrapper for XYData, but with more functions for spectral
     analysis.
     """
-
-    __slots__ = ('__dict__')
 
     @property
     def df(self) -> Real:
