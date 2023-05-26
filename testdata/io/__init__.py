@@ -9,3 +9,10 @@ from .loader import *
 from .database import *
 
 from . import xml
+try:
+    from . import png
+except ModuleNotFoundError as e:
+    import sys
+    sys.stderr.write("fail to load png interface\n")
+    sys.stderr.write(f"{e}")
+    pass
