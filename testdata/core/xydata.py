@@ -17,7 +17,7 @@ from .misc import Real, InfoDict, cached_property
 __all__ = ('Array', 'LinRange', 'LogRange',
            'XYData', 'Spectrum',
            'as_linrange',
-)
+           )
 
 
 T = TypeVar('T', int, float, complex)
@@ -76,7 +76,7 @@ class Array(Storage, Generic[T]):
     @staticmethod
     def frombytes(b: bytes,
                   dtype: Union[Type[T], str, npt.DTypeLike, None] = None
-    ) -> Array[T]:
+                  ) -> Array[T]:
         array = np.frombuffer(b, dtype=dtype)
         return Array(array, dtype)
 
@@ -118,10 +118,10 @@ class Array(Storage, Generic[T]):
 StorageType = TypeVar('StorageType', bound=Storage)
 
 
-class RangedStorage(Storage, abc.ABC):
+class RangedStorage(Storage):
 
     __slots__ = ()
-    
+
     """Ranged storage."""
     @property
     @abc.abstractmethod
@@ -150,7 +150,7 @@ class RangedStorage(Storage, abc.ABC):
     def __len__(self) -> int:
         return self.size
 
-    
+
 class LinRange(RangedStorage, Generic[RealType]):
     """A wrapper for Storage with linspaced data.
 
@@ -222,8 +222,8 @@ class LinRange(RangedStorage, Generic[RealType]):
         if self.dtype != other.dtype:
             return False
         if (self.start == other.start and
-            self.step == other.step and
-            self.size == other.size):
+                self.step == other.step and
+                self.size == other.size):
             return True
         return False
 
@@ -318,7 +318,7 @@ class LogRange(RangedStorage, Generic[RealType]):
             return False
         if (self.start == other.start and
             self.step == other.step and
-            self.size == other.size):
+                self.size == other.size):
             return True
         return False
 
@@ -369,7 +369,7 @@ class XYData:
 
     def derive(self,
                NewXYDataType: Type[XYDataType]
-    ) -> XYDataType:
+               ) -> XYDataType:
         if not issubclass(NewXYDataType, XYData):
             raise TypeError('"NewXYDataType" should be '
                             'subclass of "XYDataType"')
@@ -485,13 +485,13 @@ def as_linrange(x: LinRange[RealType]) -> LinRange[RealType]: ...
 @overload
 def as_linrange(x: Iterable[RealType],
                 dtype: Union[Type[RealType], str, npt.DTypeLike, None] = ...
-) -> LinRange[RealType]: ...
+                ) -> LinRange[RealType]: ...
 
 
 def as_linrange(x: LinRange[RealType] | Iterable[RealType],
                 dtype: Union[Type[RealType], str, npt.DTypeLike,
                              None] = None
-) -> LinRange[RealType]:
+                ) -> LinRange[RealType]:
     if isinstance(x, LinRange):
         return x
     _x = tuple(x)

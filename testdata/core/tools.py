@@ -21,54 +21,68 @@ OCTAVE_REFERENCE_FREQUENCY = 1000.
 @overload
 def get_decibel(s: float,
                 s_ref: float = ...
-) -> float: ...
+                ) -> float: ...
 
 
 @overload
 def get_decibel(s: Iterable[float],
                 s_ref: float = ...
-) -> npt.NDArray[float]: ...
+                ) -> npt.NDArray[float]: ...
 
 
-def get_decibel(s: float | Iterable[float],
-                s_ref: float = 1.) -> float | npt.NDArray[float]:
+@overload
+def get_decibel(s: XYData,
+                s_ref: float = ...
+                ) -> XYData: ...
+
+
+def get_decibel(s, s_ref=1.):
     """Calculate the decibel.
 
     The expression for decibel is:
-    L = 10 * log10 (s / s_ref)
+    L = 10 * log10 (abs(s / s_ref))
 
     Parameters
     ----------
-    s : array_like
+    s : float or array_like or XYData object
         Signal intensity or power.
     s_ref: float, optional
         Reference signal intensity or power.
 
     Returns
     -------
-    signal_level: array_like
+    signal_level: float or array_like or XYData
         Decibel of the input signal.
     """
-    return 10 * np.log10(np.asarray(s) / s_ref)
+    if isinstance(s, XYData):
+        y = get_decibel(s.y, s_ref)
+        return XYData(s.x, y).derive(type(s))
+    else:
+        return 10 * np.log10(abs(np.asarray(s) / s_ref))
 
 
 @overload
 def get_spl(p: float,
             type: Literal['power', 'pressure'] = ...,
             p_ref: Optional[float] = ...
-) -> float: ...
+            ) -> float: ...
 
 
 @overload
 def get_spl(p: Iterable[float],
             type: Literal['power', 'pressure'] = ...,
             p_ref: Optional[float] = ...
-) -> npt.NDArray[float]: ...
+            ) -> npt.NDArray[float]: ...
 
 
-def get_spl(p: float | Iterable[float],
-            type: Literal['power', 'pressure'] = 'power',
-            p_ref: Optional[float] = None):
+@overload
+def get_spl(p: XYData,
+            type: Literal['power', 'pressure'] = ...,
+            p_ref: Optional[float] = ...
+            ) -> XYData: ...
+
+
+def get_spl(p, type='power', p_ref=None):
     """Calculate the sound power/pressure level (SPL).
 
     The expression for SPL for sound power is:
@@ -84,7 +98,7 @@ def get_spl(p: float | Iterable[float],
 
     Parameters
     ----------
-    p : array_like
+    p : float or array_like or XYData object
         Sound power or sound pressure.
     type : {'power', 'pressure'}, optional
         Selects between calculating the sound power level and sound
@@ -93,7 +107,6 @@ def get_spl(p: float | Iterable[float],
         The reference sound power/pressure for calculating SPL. Defaults
         to 2e-5.
     """
-    p = np.asarray(p)
     p_ref = P_REF if p_ref is None else p_ref
     if type == 'power':
         return get_decibel(p, p_ref ** 2)
@@ -111,7 +124,7 @@ def psd(x: Storage,
         scaling: Literal['density', 'spectrum'] = 'density',
         normalization: Literal['power', 'amplitude'] = 'power',
         **kwargs
-) -> Spectrum:
+        ) -> Spectrum:
     """Calculate the power spectral density of input data.
 
     This function is a wrapper of scipy.signal.welch. It estimates the
@@ -161,7 +174,7 @@ def csd(x: Storage,
         scaling: Literal['density', 'spectrum'] = 'density',
         normalization: Literal['power', 'amplitude'] = 'power',
         **kwargs
-) -> Spectrum:
+        ) -> Spectrum:
     """Calculate the cross-spectral density of input data.
 
     This function is a wrapper of scipy.signal.csd. It estimates the
@@ -322,6 +335,7 @@ class OctaveBand:
         The reference_frequency. If None is given, it is set to
         OCTAVE_REFERENCE_FREQUENCY. Defaults to None.
     """
+
     def __init__(self,
                  inv_designator: int = 3,
                  octave_ratio: OctaveRatioType = 'base10',
@@ -358,7 +372,7 @@ class OctaveBand:
 
     def midband_frequency(self,
                           index: int | Iterable[int]
-    ) -> float | npt.NDArray[float]:
+                          ) -> float | npt.NDArray[float]:
         """Get the midband frequency of the given index.
 
         Parameters
@@ -385,11 +399,11 @@ class OctaveBand:
     @overload
     def bandedge_frequency(self,
                            index: Iterable[int]
-    ) -> Tuple[npt.NDArray[float], npt.NDArray[float]]: ...
+                           ) -> Tuple[npt.NDArray[float], npt.NDArray[float]]: ...
 
     def bandedge_frequency(self,
                            index: int | Iterable[int]
-    ) -> Tuple[float, float] | Tuple[npt.NDArray[float], npt.NDArray[float]]:
+                           ) -> Tuple[float, float] | Tuple[npt.NDArray[float], npt.NDArray[float]]:
         """Get the bandedge frequenc.
 
        Parameters
@@ -417,7 +431,7 @@ class OctaveBand:
 
     def index(self,
               frequency: float | Iterable[float]
-    ) -> int | npt.NDArray[int]:
+              ) -> int | npt.NDArray[int]:
         """Get the octave index band of the given frequency."""
         quotient = frequency / self._fr
         index = np.log(quotient) / np.log(self.octave_ratio)
