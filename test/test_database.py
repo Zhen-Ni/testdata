@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-if '..' not in sys.path:
-    sys.path.append('..')
-
 import unittest
 
 import testdata as td
@@ -12,8 +8,8 @@ import testdata as td
 class Test_database(unittest.TestCase):
 
     def test_DataBase_context(self):
-        section = td.import_wav('./320-spoiler.wav', name='test')
-        section2 = td.import_wav('./320-spoiler.wav', name='test2')
+        section = td.import_wav('./test/320-spoiler.wav', name='test')
+        section2 = td.import_wav('./test/320-spoiler.wav', name='test2')
         # Open database with uri mode 'memory', which creates a pure
         # in-memory database that never interacts with disk.
         with td.SectionDB('test#.db', 'memory') as db:

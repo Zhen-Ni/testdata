@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-if '..' not in sys.path:
-    sys.path.append('..')
-
 import numpy as np
 import copy
 import pickle

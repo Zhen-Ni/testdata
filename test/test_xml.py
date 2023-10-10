@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 
-import sys
-if '..' not in sys.path:
-    sys.path.append('..')
-
-import numpy as np
-import copy
 import unittest
 import testdata as td
-import xml.etree.ElementTree as ET
 
 
 class TestXml(unittest.TestCase):
@@ -22,7 +15,7 @@ class TestXml(unittest.TestCase):
         self.assertEqual(data, data2)
 
     def test_storage(self):
-        section = td.import_wav('./320-spoiler.wav', 'test wav')
+        section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         xydata = section[0].source_data
         xml_x = td.xml.dump_element(xydata.x)
         x = td.xml.load_element(xml_x)
@@ -32,7 +25,7 @@ class TestXml(unittest.TestCase):
         self.assertEqual(y, xydata.y)
 
     def test_xydata(self):
-        section = td.import_wav('./320-spoiler.wav', 'test wav')
+        section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         xydata = section[0].source_data
         xydata.info['testinfo'] = (1, 2, 3)
         xml = td.xml.dump_element(xydata)
@@ -40,15 +33,15 @@ class TestXml(unittest.TestCase):
         self.assertEqual(xydata, data2)
 
     def test_section(self):
-        section = td.import_wav('./320-spoiler.wav', 'test wav')
+        section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         xml = td.xml.dump_element(section)
         section2 = td.xml.load_element(xml)
         self.assertEqual(section.name, section2.name)
         self.assertEqual(section.records, section2.records)
         self.assertEqual(section[0].source_data, section2[0].source_data)
-        
+
     def test_dumps_loads(self):
-        section = td.import_wav('./320-spoiler.wav', 'test wav')
+        section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         xml = td.xml.dumps(section)
         section2 = td.xml.loads(xml)
         self.assertEqual(section.name, section2.name)
@@ -56,7 +49,7 @@ class TestXml(unittest.TestCase):
         self.assertEqual(section[0].source_data, section2[0].source_data)
 
     def test_dump_load(self):
-        section = td.import_wav('./320-spoiler.wav', 'test wav')
+        section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         [channel.derive(td.SpectrumChannel).update_spectrum() for
          channel in section.channels]
         td.xml.dump(section, 'test.xml')
@@ -64,10 +57,7 @@ class TestXml(unittest.TestCase):
         self.assertEqual(section.name, section2.name)
         self.assertEqual(section.records, section2.records)
         self.assertEqual(section[0].source_data, section2[0].source_data)
-        
-        
+
+
 if __name__ == '__main__':
     unittest.main(argv=[''], exit=False)
-
-
-

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-if '..' not in sys.path:
-    sys.path.append('..')
-
 import unittest
 import testdata as td
 import numpy as np

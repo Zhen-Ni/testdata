@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-if '..' not in sys.path:
-    sys.path.append('..')
-
 import numpy as np
 import pickle
 import unittest
@@ -21,7 +17,7 @@ class TestChannel(unittest.TestCase):
         self.assertFalse(c2.source_data is None)
 
     def test_Channel_loader(self):
-        loader_info = td.LoaderInfo('textloader', './channel0.txt')
+        loader_info = td.LoaderInfo('textloader', './test/channel0.txt')
         data0 = td.load_data(loader_info)
         channel = td.SpectrumChannel('test channel',
                                      loader_info=loader_info)
@@ -39,6 +35,3 @@ class TestChannel(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(argv=[''], exit=False)
-
-
-

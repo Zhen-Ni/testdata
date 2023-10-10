@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-if '..' not in sys.path:
-    sys.path.append('..')
 
 import numpy as np
 import copy
@@ -13,7 +10,7 @@ import testdata as td
 class TestChannel(unittest.TestCase):
 
     def test_Section(self):
-        section = td.import_wav('./320-spoiler.wav', 'test wav')
+        section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         section2 = copy.deepcopy(section)
         [c.derive(td.SpectrumChannel).update_spectrum()
          for c in section.channels]
@@ -29,6 +26,3 @@ class TestChannel(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(argv=[''], exit=False)
-
-
-
