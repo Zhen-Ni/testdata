@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import unittest
 import testdata as td
 
@@ -52,8 +53,9 @@ class TestXml(unittest.TestCase):
         section = td.import_wav('./test/320-spoiler.wav', 'test wav')
         [channel.derive(td.SpectrumChannel).update_spectrum() for
          channel in section.channels]
-        td.xml.dump(section, 'test.xml')
-        section2 = td.xml.load('test.xml')
+        td.xml.dump(section, './test/test.xml')
+        section2 = td.xml.load('./test/test.xml')
+        os.remove('./test/test.xml')
         self.assertEqual(section.name, section2.name)
         self.assertEqual(section.records, section2.records)
         self.assertEqual(section[0].source_data, section2[0].source_data)
