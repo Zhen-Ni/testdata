@@ -195,7 +195,7 @@ class LinRange(RangedStorage, Generic[RealType]):
             raise TypeError('index must be int')
         if -len(self) <= index < len(self):
             if index < 0:
-                index = len(self) - index
+                index = len(self) + index
             return self.start + self.step * index
         else:
             raise IndexError('list index out of range')
@@ -290,7 +290,7 @@ class LogRange(RangedStorage, Generic[RealType]):
             raise TypeError('index must be int')
         if -len(self) <= index < len(self):
             if index < 0:
-                index = len(self) - index
+                index = len(self) + index
             return self.start * self.step ** index
         else:
             raise IndexError('list index out of range')
@@ -348,7 +348,7 @@ class XYData:
     """Data structure for test data.
 
     TestData contains paired x and y values and additional
-    information. The x data must be evenly spaced.
+    information.
     """
 
     def __init__(self,
@@ -367,6 +367,9 @@ class XYData:
     def __repr__(self):
         return f"<{self.__class__.__name__} object> size: {len(self.x)}"
 
+    def __len__(self):
+        return len(self._x)
+    
     def derive(self,
                NewXYDataType: Type[XYDataType]
                ) -> XYDataType:

@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import copy
 import unittest
 import testdata as td
-import xml.etree.ElementTree as ET
 
 
 class TestPng(unittest.TestCase):

@@ -17,7 +17,7 @@ class TestXYData(unittest.TestCase):
         fd2 = pickle.loads(pickle.dumps(fd))
         self.assertTrue(np.allclose(x, fd2.x))
         self.assertTrue(np.allclose(y, fd2.y))
-    
+
     def test_Spectrum(self):
         x = np.linspace(0, 100, 1001)
         y = np.random.random(len(x))
@@ -30,13 +30,23 @@ class TestXYData(unittest.TestCase):
         fd = td.Spectrum(x, y)
         fd2 = fd.derive(td.XYData)
         fd3 = fd2.derive(td.Spectrum)
-        self.assertTrue(np.allclose(fd.pxx, fd3.pxx))        
+        self.assertTrue(np.allclose(fd.pxx, fd3.pxx))
 
     def test_linrange(self):
         x = np.arange(10000)
         data = td.as_linrange(x)
         self.assertTrue(np.allclose(list(data), x))
-        x = [1,2,3,4,5,6,6.5]
+        self.assertEqual(x[0], 0.)
+        self.assertEqual(x[9999], 9999.)
+        self.assertEqual(x[-1], 9999.)
+        try:
+            x[10000]
+        except IndexError:
+            pass
+        else:
+            self.assertTrue(False, 'Exception not raised')
+
+        x = [1, 2, 3, 4, 5, 6, 6.5]
         try:
             # Should raise error here
             data = td.as_linrange(x)
