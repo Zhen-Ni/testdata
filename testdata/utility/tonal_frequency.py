@@ -5,7 +5,7 @@ import functools
 
 import numpy as np
 
-from ..core import LinRange, Spectrum
+from ..core import as_linrange, Spectrum
 
 __all__ = ('find_tones', 'find_tones_hps',
            'find_tones_brute', 'find_tones_cepstrum')
@@ -128,7 +128,7 @@ def find_tones_cepstrum(spec: Spectrum,
     fundamental_frequency: float
         The fundamental tonal frequency.
     """
-    f = LinRange.from_storage(spec.x)
+    f = as_linrange(spec.x)
     ceps = abs(np.fft.rfft(spec.spl))
     stop_idx = round(f[-1] / start)
     start_idx = round(f[-1] / stop)

@@ -6,7 +6,7 @@ import numpy.typing as npt
 from typing import Optional, Literal, Union, Tuple, overload, Iterable
 import scipy.signal as signal
 
-from .xydata import Spectrum, LinRange, LogRange, XYData, Storage
+from .xydata import Spectrum, LogRange, XYData, Storage, as_linrange
 from .channel import SpectrumChannel
 from .misc import as_int
 
@@ -212,7 +212,7 @@ def csd(x: Storage,
         The desired cross power spectrum (density), with additional
         arguments stored in its `info`.
     """
-    x = LinRange.from_storage(x)
+    x = as_linrange(x)
     if not len(x) == len(y1) == len(y2):
         raise ValueError('size of x, y1 and y2 should be the same')
     dt = x.step
@@ -242,7 +242,7 @@ def csd(x: Storage,
     f = f[index]
     pxy = pxy[index]
 
-    freq = LinRange.from_storage(f)
+    freq = as_linrange(f)
     return Spectrum(freq, pxy,
                     dict(df=df, window=window,
                          return_onesided=return_onesided,

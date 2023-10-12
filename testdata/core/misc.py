@@ -2,10 +2,11 @@
 
 from typing import Union, Dict, Any
 
-__all__ = ('Real', 'InfoDict')
+__all__ = ('Real', 'Scalar', 'InfoDict')
 
 
 Real = Union[int, float]
+Scalar = Union[int, float, complex]
 InfoDict = Dict[str, Any]
 
 
@@ -14,6 +15,7 @@ _NOT_FOUND = object()
 
 class cached_property:
     """This is the non-reentrant version of functools.chaned_property."""
+
     def __init__(self, func):
         self.func = func
         self.attrname = None

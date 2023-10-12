@@ -4,24 +4,24 @@
 """Muodule for basic test data structure."""
 
 from __future__ import annotations
-from typing import (Union, Literal, Iterable, overload, TypeVar,
+from typing import (Union, Literal, Iterable, TypeVar,
                     Generic, Type, Any)
 import abc
 
 import numpy as np
 import numpy.typing as npt
 
-from .misc import Real, InfoDict, cached_property
+from .misc import Scalar, InfoDict, cached_property
 
 
 __all__ = ('Array', 'LinRange', 'LogRange',
            'XYData', 'Spectrum',
-           'as_linrange',
+           'as_storage', 'as_linrange', 'as_logrange'
            )
 
 
 T = TypeVar('T', int, float, complex)
-RealType = TypeVar('RealType', int, float)
+ScalarType = TypeVar('ScalarType', int, float, complex)
 
 
 class Storage(abc.ABC, Generic[T]):
@@ -129,16 +129,11 @@ class RangedStorage(Storage):
 
     @property
     @abc.abstractmethod
-    def step(self) -> Real: pass
+    def step(self) -> Scalar: pass
 
     @property
     @abc.abstractmethod
-    def start(self) -> Real: pass
-
-    @classmethod
-    @abc.abstractmethod
-    def from_storage(cls: Type[StorageType],
-                     other: Storage) -> StorageType: pass
+    def start(self) -> Scalar: pass
 
     def __repr__(self) -> str:
         return (f"<{self.__class__.__name__} object> "
@@ -151,7 +146,7 @@ class RangedStorage(Storage):
         return self.size
 
 
-class LinRange(RangedStorage, Generic[RealType]):
+class LinRange(RangedStorage, Generic[ScalarType]):
     """A wrapper for Storage with linspaced data.
 
     It is a wrapper for class Storage. When the data is evenly spaced,
@@ -174,9 +169,9 @@ class LinRange(RangedStorage, Generic[RealType]):
 
     def __init__(self,
                  size: int,
-                 step: RealType,
-                 start: RealType = 0,
-                 dtype: Union[Type[RealType], str, npt.DTypeLike] = None):
+                 step: ScalarType,
+                 start: ScalarType = 0,
+                 dtype: Union[Type[ScalarType], str, npt.DTypeLike] = None):
         self._size = int(size)
         self._dtype = np.dtype(np.result_type(step, start) if
                                dtype is None else dtype).type
@@ -184,13 +179,13 @@ class LinRange(RangedStorage, Generic[RealType]):
         self._start = self._dtype(start)
 
     @property
-    def dtype(self) -> Type[RealType]:
+    def dtype(self) -> Type[ScalarType]:
         return self._dtype
 
-    def __array__(self) -> npt.NDArray[RealType]:
+    def __array__(self) -> npt.NDArray[ScalarType]:
         return np.arange(self.size) * self.step + self.start
 
-    def __getitem__(self, index: int) -> RealType:
+    def __getitem__(self, index: int) -> ScalarType:
         if not isinstance(index, int):
             raise TypeError('index must be int')
         if -len(self) <= index < len(self):
@@ -205,11 +200,11 @@ class LinRange(RangedStorage, Generic[RealType]):
         return self._size
 
     @property
-    def step(self) -> RealType:
+    def step(self) -> ScalarType:
         return self._step
 
     @property
-    def start(self) -> RealType:
+    def start(self) -> ScalarType:
         return self._start
 
     def __reduce__(self):
@@ -227,26 +222,8 @@ class LinRange(RangedStorage, Generic[RealType]):
             return True
         return False
 
-    @classmethod
-    def from_storage(cls: Type[LinRange],
-                     other: Storage) -> LinRange:
-        if isinstance(other, cls):
-            return other
-        start = other[0]
-        stop = other[-1]
-        if len(other) == 1:
-            step = 0
-        else:
-            step = (stop - start) / (len(other) - 1)
-        size = len(other)
-        result = LinRange(size, step, start, other.dtype)
-        if not np.allclose(other, np.asarray(result)):
-            raise ValueError('cannot construct LinRange '
-                             'object from given input')
-        return result
 
-
-class LogRange(RangedStorage, Generic[RealType]):
+class LogRange(RangedStorage, Generic[ScalarType]):
     """A wrapper for Storage with logspaced data.
 
     It is a wrapper for class Storage. When the data is spaced evenly
@@ -260,7 +237,7 @@ class LogRange(RangedStorage, Generic[RealType]):
     step: int or float
         The quotient of two adjacent data.
     start: int or float, optional
-        The start value of data. Defaults to 0.
+        The start value of data. Defaults to 1.
     typecode: npt.DTypeLike, optional
         Data type for storage. None for auto detection. Defaults to None.
     """
@@ -269,8 +246,8 @@ class LogRange(RangedStorage, Generic[RealType]):
 
     def __init__(self,
                  size: int,
-                 step: RealType,
-                 start: RealType = 0,
+                 step: ScalarType,
+                 start: ScalarType = 1,
                  dtype: Union[Type[T], str, npt.DTypeLike] = None):
         self._size = int(size)
         self._dtype = np.dtype(np.result_type(step, start) if
@@ -279,13 +256,13 @@ class LogRange(RangedStorage, Generic[RealType]):
         self._start = self._dtype(start)
 
     @property
-    def dtype(self) -> Type[RealType]:
+    def dtype(self) -> Type[ScalarType]:
         return self._dtype
 
-    def __array__(self) -> npt.NDArray[RealType]:
+    def __array__(self) -> npt.NDArray[ScalarType]:
         return self.start * self.step ** np.arange(self.size)
 
-    def __getitem__(self, index: int) -> RealType:
+    def __getitem__(self, index: int) -> ScalarType:
         if not isinstance(index, int):
             raise TypeError('index must be int')
         if -len(self) <= index < len(self):
@@ -300,11 +277,11 @@ class LogRange(RangedStorage, Generic[RealType]):
         return self._size
 
     @property
-    def step(self) -> RealType:
+    def step(self) -> ScalarType:
         return self._step
 
     @property
-    def start(self) -> RealType:
+    def start(self) -> ScalarType:
         return self._start
 
     def __reduce__(self):
@@ -322,24 +299,6 @@ class LogRange(RangedStorage, Generic[RealType]):
             return True
         return False
 
-    @classmethod
-    def from_storage(cls: Type[LogRange],
-                     other: Storage) -> LogRange:
-        if isinstance(other, cls):
-            return other
-        start = other[0]
-        stop = other[-1]
-        if start == 0 or len(other) == 1:
-            step = 0
-        else:
-            step = (stop / start) ** (1 / (len(other) - 1))
-        size = len(other)
-        result = LogRange(size, step, start, other.dtype)
-        if not np.allclose(other, np.asarray(result)):
-            raise ValueError('cannot construct LogRange '
-                             'object from given input')
-        return result
-
 
 XYDataType = TypeVar('XYDataType', bound='XYData')
 
@@ -356,8 +315,8 @@ class XYData:
                  y: Iterable,
                  info: InfoDict = {},
                  ):
-        _x = Array(x) if not isinstance(x, Storage) else x
-        _y = Array(y) if not isinstance(y, Storage) else y
+        _x = as_storage(x) if not isinstance(x, Storage) else x
+        _y = as_storage(y) if not isinstance(y, Storage) else y
         if len(_x) != len(_y):
             raise ValueError('length of x and y should be the same')
         self._x = _x
@@ -369,7 +328,7 @@ class XYData:
 
     def __len__(self):
         return len(self._x)
-    
+
     def derive(self,
                NewXYDataType: Type[XYDataType]
                ) -> XYDataType:
@@ -411,7 +370,7 @@ class Spectrum(XYData):
     """
 
     @property
-    def df(self) -> Real:
+    def df(self) -> Scalar:
         if isinstance(self.x, LinRange):
             return self.x.step
         raise AttributeError('only linrange x has attribute "df"')
@@ -481,22 +440,42 @@ class Spectrum(XYData):
                             **kwargs)
 
 
-@overload
-def as_linrange(x: LinRange[RealType]) -> LinRange[RealType]: ...
+_AS_STORAGE_LENGTH_THRESHOLD = 5                  # must be larger than 3
 
 
-@overload
-def as_linrange(x: Iterable[RealType],
-                dtype: Union[Type[RealType], str, npt.DTypeLike, None] = ...
-                ) -> LinRange[RealType]: ...
+def as_storage(x: Iterable[ScalarType],
+               dtype: Union[Type[ScalarType], str, npt.DTypeLike,
+                            None] = None
+               ) -> Storage[ScalarType]:
+    if len(x) < _AS_STORAGE_LENGTH_THRESHOLD:
+        return Array(x, dtype)
+    it = iter(x)
+    a = next(it)
+    b = next(it)
+    c = next(it)
+    if np.isclose(a + c, b + b):
+        try:
+            result = as_linrange(x, dtype)
+        except Exception:
+            pass
+        else:
+            return result
+    elif np.isclose(b * b, a * c):
+        try:
+            result = as_logrange(x, dtype)
+        except Exception:
+            pass
+        else:
+            return result
+    return Array(x, dtype)
 
 
-def as_linrange(x: LinRange[RealType] | Iterable[RealType],
-                dtype: Union[Type[RealType], str, npt.DTypeLike,
+def as_linrange(x: Iterable[ScalarType],
+                dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                              None] = None
-                ) -> LinRange[RealType]:
+                ) -> LinRange[ScalarType]:
     if isinstance(x, LinRange):
-        return x
+        return LinRange(x.size, x.step, x.start, x.dtype)
     _x = tuple(x)
     start = _x[0]
     stop = _x[-1]
@@ -508,4 +487,24 @@ def as_linrange(x: LinRange[RealType] | Iterable[RealType],
     result = LinRange(size, step, start, dtype)
     if not np.allclose(_x, np.asarray(result)):
         raise ValueError('cannot construct LinRange object from given input')
+    return result
+
+
+def as_logrange(x: Iterable[ScalarType],
+                dtype: Union[Type[ScalarType], str, npt.DTypeLike,
+                             None] = None
+                ) -> LogRange[ScalarType]:
+    if isinstance(x, LogRange):
+        return LogRange(x.size, x.step, x.start, x.dtype)
+    _x = tuple(x)
+    start = _x[0]
+    stop = _x[-1]
+    if len(_x) != 1:
+        step = (stop / start) ** (1 / (len(_x) - 1))
+    else:
+        step = 0
+    size = len(_x)
+    result = LogRange(size, step, start, dtype)
+    if not np.allclose(_x, np.asarray(result)):
+        raise ValueError('cannot construct LogRange object from given input')
     return result

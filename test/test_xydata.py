@@ -9,6 +9,20 @@ import testdata as td
 
 class TestXYData(unittest.TestCase):
 
+    def test_as_storage(self):
+        x1 = [1., 2., 3., 4., 5.]
+        x = td.as_storage(x1)
+        self.assertTrue(isinstance(x, td.LinRange))
+        self.assertTrue(np.allclose(x, x1))
+        x2 = 2 ** np.array(x1)
+        x = td.as_storage(x2)
+        self.assertTrue(isinstance(x, td.LogRange))
+        self.assertTrue(np.allclose(x, x2))
+        x3 = [1, 3, 2, 5]
+        x = td.as_storage(x3)
+        self.assertTrue(isinstance(x, td.Array))
+        self.assertTrue(np.allclose(x, x3))
+
     def test_XYData(self):
         x = np.linspace(0, 100, 1001)
         y = np.random.random(len(x))
