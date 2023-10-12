@@ -7,11 +7,11 @@ import numpy as np
 
 from ..core import as_linrange, Spectrum
 
-__all__ = ('find_tones', 'find_tones_hps',
-           'find_tones_brute', 'find_tones_cepstrum')
+__all__ = ('find_tone', 'find_tone_hps',
+           'find_tone_brute', 'find_tone_cepstrum')
 
 
-def find_tones_hps(spec: Spectrum,
+def find_tone_hps(spec: Spectrum,
                    order: int,
                    threshold: float | None = None) -> float:
     """Use HPS algorithm to estimate fundamental frequency.
@@ -75,7 +75,7 @@ def find_tones_hps(spec: Spectrum,
     return fundamental_frequency
 
 
-def find_tones_brute(spec: Spectrum,
+def find_tone_brute(spec: Spectrum,
                      start: float,
                      stop: float,
                      step: float) -> float:
@@ -111,7 +111,7 @@ def find_tones_brute(spec: Spectrum,
     return fs[np.argmax(mean)]
 
 
-def find_tones_cepstrum(spec: Spectrum,
+def find_tone_cepstrum(spec: Spectrum,
                         start: float,
                         stop: float):
     """Use cepstrum to find fundamental tonal frequency.
@@ -136,4 +136,4 @@ def find_tones_cepstrum(spec: Spectrum,
     return f[-1] / (idx + start_idx)
 
 
-find_tones = find_tones_hps
+find_tone = find_tone_hps
