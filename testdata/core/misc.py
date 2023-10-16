@@ -66,3 +66,44 @@ class cached_property:
 def as_int(x: Union[int, float]) -> int:
     """Round input value and cast it into int value."""
     return int(round(x))
+
+
+def parse_slice(container_length: int, index: slice
+                ) -> tuple[int, int, int]:
+    """Parse the slice index of a container into size, step and start pairs.
+
+    For sequencial container `c`, its items can be reached by
+    `c[index]` where `index` can be either int or slice object. If
+    `index` is a slice object, it is in the form of `[start: stop:
+    step]`, and either of the three values can be None. This function
+    parses the slice index object into `size`, `step` and `start`
+    pairs.
+    """
+    step_idx = 1 if index.step is None else index.step
+    if step_idx == 0:
+        raise ValueError('slice step cannot be zero')
+    start_idx = index.start
+    if start_idx is None:
+        start_idx = 0 if step_idx > 0 else container_length - 1
+    else:
+        if start_idx < 0:
+            start_idx = container_length + start_idx
+        if start_idx < 0:
+            start_idx = 0
+        if start_idx >= container_length:
+            start_idx = container_length - 1
+    stop_idx = index.stop
+    if stop_idx is None:
+        stop_idx = -1 if step_idx < 0 else container_length
+    else:
+        if stop_idx < 0:
+            stop_idx = container_length + stop_idx
+        if stop_idx < -1:
+            stop_idx = -1
+        if stop_idx > container_length:
+            stop_idx = container_length
+    size = ((stop_idx - start_idx) // step_idx +
+            bool((stop_idx - start_idx) % step_idx))
+    if size < 0:
+        size = 0
+    return size, step_idx, start_idx

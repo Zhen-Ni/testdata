@@ -69,6 +69,26 @@ class TestXYData(unittest.TestCase):
         else:
             self.assertTrue(False, 'Exception not raised')
 
+    def test_linrange_getitem(self):
+        a = td.LinRange(10, 1, 0)[::-1][::-1]
+        self.assertEqual(a[:], a)
+        self.assertEqual(a[4:], td.LinRange(6, 1, 4))
+        self.assertEqual(a[:4], td.LinRange(4, 1, 0))
+        self.assertEqual(a[1:4], td.LinRange(3, 1, 1))
+        self.assertEqual(a[4:1], td.LinRange(0, 1, 4))
+        self.assertEqual(a[-6:], td.LinRange(6, 1, 4))
+        self.assertEqual(a[:-6], td.LinRange(4, 1, 0))
+        self.assertEqual(a[-16:], a)
+        self.assertEqual(a[:-16], td.LinRange(0, 1, 0))
+        self.assertEqual(a[::2], td.LinRange(5, 2, 0))
+        self.assertEqual(a[::-2], td.LinRange(5, -2, 9))
+        self.assertEqual(a[1:9:2], td.LinRange(4, 2, 1))
+        self.assertEqual(a[8::-2], td.LinRange(5, -2, 8))
+        self.assertEqual(a[9::-2], td.LinRange(5, -2, 9))
+        self.assertEqual(a[:8:-2], td.LinRange(1, -2, 9))
+        self.assertEqual(a[:9:-2], td.LinRange(0, -2, 9))
+        self.assertEqual(a[4:][:4], td.LinRange(4, 1, 4))
+
     def test_pickle_LinRange(self):
         a = td.LinRange(20, 1)
         b = pickle.loads(pickle.dumps(a))
@@ -83,6 +103,18 @@ class TestXYData(unittest.TestCase):
         self.assertEqual(a.step, b.step)
         self.assertTrue(np.allclose(list(a), list(c)))
         self.assertEqual(a.step, c.step)
+
+    def test_array(self):
+        a = td.LinRange(10, 1, 0)
+        b = td.Array(a)
+        self.assertEqual(len(b), 10)
+        self.assertEqual(a, b)
+        self.assertEqual(a[:5], b[:5])
+        self.assertEqual(b[9:2:-1][::2], a[9:2:-1][::2])
+        self.assertTrue(np.allclose(np.array(b[9:2:-1][::2]),
+                                    np.array(b)[9:2:-1][::2]))
+        self.assertEqual(pickle.loads(pickle.dumps(b)), b)
+        self.assertEqual(pickle.loads(pickle.dumps(b[:5])), b[:5])
 
 
 if __name__ == '__main__':

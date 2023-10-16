@@ -11,7 +11,7 @@ import abc
 import numpy as np
 import numpy.typing as npt
 
-from .misc import Scalar, InfoDict, cached_property
+from .misc import Scalar, InfoDict, cached_property, parse_slice
 
 
 __all__ = ('Array', 'LinRange', 'LogRange',
@@ -20,67 +20,78 @@ __all__ = ('Array', 'LinRange', 'LogRange',
            )
 
 
-T = TypeVar('T', int, float, complex)
 ScalarType = TypeVar('ScalarType', int, float, complex)
 
 
-class Storage(abc.ABC, Generic[T]):
+class Storage(abc.ABC, Generic[ScalarType]):
     __slots__ = ()
 
     @property
     @abc.abstractmethod
-    def dtype(self) -> Type[T]: pass
+    def dtype(self) -> Type[ScalarType]: pass
 
     @abc.abstractmethod
-    def __array__(self) -> npt.NDArray:
-        """Convert self to np.ndarray."""
+    def __getitem__(self, index: int | slice
+                    ) -> ScalarType | Storage[ScalarType]:
         pass
-
-    @abc.abstractmethod
-    def __repr__(self) -> str: pass
-
-    @abc.abstractmethod
-    def __getitem__(self, index: int) -> T: pass
 
     @abc.abstractmethod
     def __len__(self) -> int: pass
 
-    # Might be unnecessary.
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
+    def __array__(self) -> npt.NDArray[ScalarType]:
+        """Convert self to np.ndarray.
 
-    @abc.abstractmethod
-    def __eq__(self, other) -> bool: pass
+        Derived classes are encouraged to overwrite this method
+        to improve performance.
+        """
+        return np.array(self, dtype=self.dtype)
+
+    def __repr__(self) -> str:
+        return (f"<{self.__class__.__name__} object> "
+                f"size: {len(self)}, "
+                f"dtype: {self.dtype}")
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Storage):
+            if self.dtype != other.dtype:
+                return False
+            if len(self) != len(other):
+                return False
+            return (np.asarray(self) == np.asarray(other)).all()
+        if np.iterable(other):
+            return self == as_storage(other)
+        return False
 
     def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
 
-class Array(Storage, Generic[T]):
+class Array(Storage, Generic[ScalarType]):
     """A wrapper for efficient data storage.
     """
 
     __slots__ = ('_array', )
 
     def __init__(self,
-                 iterable: Iterable[T],
-                 dtype: Union[Type[T], str, npt.DTypeLike, None] = None):
+                 iterable: Iterable[ScalarType],
+                 dtype: Union[Type[ScalarType], str,
+                              npt.DTypeLike, None] = None):
         # Always copy the input iterable object.
         self._array = np.array(iterable, dtype=dtype)
 
     @property
-    def dtype(self) -> Type[T]:
+    def dtype(self) -> Type[ScalarType]:
         return self._array.dtype.type
 
     @staticmethod
     def frombytes(b: bytes,
-                  dtype: Union[Type[T], str, npt.DTypeLike, None] = None
-                  ) -> Array[T]:
+                  dtype: Union[Type[ScalarType], str,
+                               npt.DTypeLike, None] = None
+                  ) -> Array[ScalarType]:
         array = np.frombuffer(b, dtype=dtype)
         return Array(array, dtype)
 
-    def __array__(self) -> npt.NDArray[T]:
+    def __array__(self) -> npt.NDArray[ScalarType]:
         # Get a copy of self._array to avoid modification.
         return self._array.copy()
 
@@ -90,50 +101,110 @@ class Array(Storage, Generic[T]):
     def __len__(self) -> int:
         return len(self._array)
 
-    def __getitem__(self, index: int) -> T:
-        if not isinstance(index, int):
-            raise TypeError('index must be int')
-        if -len(self) <= index < len(self):
-            return self._array[index]
+    def __getitem__(self, index: int | slice
+                    ) -> ScalarType | ArraySlice[ScalarType]:
+        if isinstance(index, int):
+            if -len(self) <= index < len(self):
+                return self._array[index]
+            else:
+                raise IndexError('list index out of range')
+        elif isinstance(index, slice):
+            return ArraySlice(self, index)
         else:
-            raise IndexError('list index out of range')
-
-    def __repr__(self):
-        return (f"<{self.__class__.__name__} object> "
-                f"size: {len(self)}', "
-                f"dtype: {self.dtype}")
+            raise TypeError('indices must be integers or slices')
 
     def __reduce__(self):
         return (self.__class__.frombytes,
                 (self.tobytes(), self.dtype))
 
     def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        if self.dtype != other.dtype:
-            return False
-        return (self._array == other._array).all()
+        if isinstance(other, Array):
+            if self.dtype != other.dtype:
+                return False
+            if len(self) != len(other):
+                return False
+            return (self._array == other._array).all()
+        return super().__eq__(other)
 
 
-StorageType = TypeVar('StorageType', bound=Storage)
+class ArraySlice(Storage, Generic[ScalarType]):
+    __slots__ = ('_storage', '_start', '_step', '_size')
+
+    def __init__(self, storage: Array, index: slice):
+        self._storage = storage
+        size, step_idx, start_idx = parse_slice(len(self._storage), index)
+        self._start = start_idx
+        self._step = step_idx
+        self._size = size
+
+    @property
+    def dtype(self) -> Type[ScalarType]:
+        return self._storage.dtype
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __getitem__(self,
+                    index: int | slice
+                    ) -> ScalarType | ArraySlice:
+        if isinstance(index, int):
+            if -len(self) <= index < len(self):
+                return self._storage[self._start + self._step * index]
+            raise IndexError('list index out of range')
+        if isinstance(index, slice):
+            if isinstance(self, ArraySlice):
+                secondary_size, secondary_step, secondary_start = \
+                    parse_slice(len(self), index)
+                start = self._start + self._step * secondary_start
+                step = self._step * secondary_step
+                size = secondary_size
+                stop = start + step * size
+                return ArraySlice(self._storage,
+                                  slice(start, stop, step))
+            return ArraySlice(self, index)
+        raise TypeError('indices must be integers or slices')
+
+    def __array__(self) -> npt.NDArray[ScalarType]:
+        start = self._start
+        step = self._step
+        stop = self._start + self._step * self._size
+        if stop < 0:
+            stop -= len(self._storage)
+        return self._storage._array[start: stop: step].copy()
 
 
-class RangedStorage(Storage):
-
-    __slots__ = ()
-
+class RangedStorage(Storage, Generic[ScalarType]):
     """Ranged storage."""
-    @property
-    @abc.abstractmethod
-    def size(self) -> int: pass
+
+    __slots__ = ('_size', '_dtype', '_step', '_start')
 
     @property
-    @abc.abstractmethod
-    def step(self) -> Scalar: pass
+    def dtype(self) -> Type[ScalarType]:
+        return self._dtype
+
+    def __init__(self,
+                 size: int,
+                 step: ScalarType,
+                 start: ScalarType = 0,
+                 dtype: Union[Type[ScalarType], str,
+                              npt.DTypeLike] = None):
+        self._size = int(size)
+        self._dtype = np.dtype(np.result_type(step, start) if
+                               dtype is None else dtype).type
+        self._step = self._dtype(step)
+        self._start = self._dtype(start)
 
     @property
-    @abc.abstractmethod
-    def start(self) -> Scalar: pass
+    def size(self) -> int:
+        return self._size
+
+    @property
+    def step(self) -> ScalarType:
+        return self._step
+
+    @property
+    def start(self) -> ScalarType:
+        return self._start
 
     def __repr__(self) -> str:
         return (f"<{self.__class__.__name__} object> "
@@ -144,6 +215,21 @@ class RangedStorage(Storage):
 
     def __len__(self) -> int:
         return self.size
+
+    def __reduce__(self):
+        return (self.__class__,
+                (self.size, self.step, self.start, self.dtype))
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, RangedStorage):
+            if self.dtype != other.dtype:
+                return False
+            if not ((self.start == other.start) and
+                    (self.step == other.step) and
+                    (self.size == other.size)):
+                return False
+            return True
+        return super().__eq__(other)
 
 
 class LinRange(RangedStorage, Generic[ScalarType]):
@@ -161,66 +247,27 @@ class LinRange(RangedStorage, Generic[ScalarType]):
         The difference of two adjacent data.
     start: int or float, optional
         The start value of data. Defaults to 0.
-    typecode: npt.DTypeLike, optional
+    dtype: npt.DTypeLike, optional
         Data type for storage. None for auto detection. Defaults to None.
     """
-
-    __slots__ = ('_size', '_dtype', '_step', '_start')
-
-    def __init__(self,
-                 size: int,
-                 step: ScalarType,
-                 start: ScalarType = 0,
-                 dtype: Union[Type[ScalarType], str, npt.DTypeLike] = None):
-        self._size = int(size)
-        self._dtype = np.dtype(np.result_type(step, start) if
-                               dtype is None else dtype).type
-        self._step = self._dtype(step)
-        self._start = self._dtype(start)
-
-    @property
-    def dtype(self) -> Type[ScalarType]:
-        return self._dtype
 
     def __array__(self) -> npt.NDArray[ScalarType]:
         return np.arange(self.size) * self.step + self.start
 
-    def __getitem__(self, index: int) -> ScalarType:
-        if not isinstance(index, int):
-            raise TypeError('index must be int')
-        if -len(self) <= index < len(self):
-            if index < 0:
-                index = len(self) + index
-            return self.start + self.step * index
-        else:
+    def __getitem__(self, index: int | slice
+                    ) -> ScalarType | LinRange[ScalarType]:
+        if isinstance(index, int):
+            if -len(self) <= index < len(self):
+                if index < 0:
+                    index = len(self) + index
+                return self.start + self.step * index
             raise IndexError('list index out of range')
-
-    @property
-    def size(self) -> int:
-        return self._size
-
-    @property
-    def step(self) -> ScalarType:
-        return self._step
-
-    @property
-    def start(self) -> ScalarType:
-        return self._start
-
-    def __reduce__(self):
-        return (self.__class__,
-                (self.size, self.step, self.start, self.dtype))
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        if self.dtype != other.dtype:
-            return False
-        if (self.start == other.start and
-                self.step == other.step and
-                self.size == other.size):
-            return True
-        return False
+        if isinstance(index, slice):
+            size, step, start = parse_slice(self.size, index)
+            return LinRange(size,
+                            self.step * step,
+                            self.start + self.step * start)
+        raise TypeError('indices must be integers or slices')
 
 
 class LogRange(RangedStorage, Generic[ScalarType]):
@@ -238,66 +285,27 @@ class LogRange(RangedStorage, Generic[ScalarType]):
         The quotient of two adjacent data.
     start: int or float, optional
         The start value of data. Defaults to 1.
-    typecode: npt.DTypeLike, optional
+    dtype: npt.DTypeLike, optional
         Data type for storage. None for auto detection. Defaults to None.
     """
-
-    __slots__ = ('_size', '_dtype', '_step', '_start')
-
-    def __init__(self,
-                 size: int,
-                 step: ScalarType,
-                 start: ScalarType = 1,
-                 dtype: Union[Type[T], str, npt.DTypeLike] = None):
-        self._size = int(size)
-        self._dtype = np.dtype(np.result_type(step, start) if
-                               dtype is None else dtype).type
-        self._step = self._dtype(step)
-        self._start = self._dtype(start)
-
-    @property
-    def dtype(self) -> Type[ScalarType]:
-        return self._dtype
 
     def __array__(self) -> npt.NDArray[ScalarType]:
         return self.start * self.step ** np.arange(self.size)
 
-    def __getitem__(self, index: int) -> ScalarType:
-        if not isinstance(index, int):
-            raise TypeError('index must be int')
-        if -len(self) <= index < len(self):
-            if index < 0:
-                index = len(self) + index
-            return self.start * self.step ** index
-        else:
+    def __getitem__(self, index: int | slice
+                    ) -> ScalarType | LogRange[ScalarType]:
+        if isinstance(index, int):
+            if -len(self) <= index < len(self):
+                if index < 0:
+                    index = len(self) + index
+                return self.start + self.step * index
             raise IndexError('list index out of range')
-
-    @property
-    def size(self) -> int:
-        return self._size
-
-    @property
-    def step(self) -> ScalarType:
-        return self._step
-
-    @property
-    def start(self) -> ScalarType:
-        return self._start
-
-    def __reduce__(self):
-        return (self.__class__,
-                (self.size, self.step, self.start, self.dtype))
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        if self.dtype != other.dtype:
-            return False
-        if (self.start == other.start and
-            self.step == other.step and
-                self.size == other.size):
-            return True
-        return False
+        if isinstance(index, slice):
+            size, step, start = parse_slice(self.size, index)
+            return LogRange(size,
+                            self.step ** step,
+                            self.start * self.step ** start)
+        raise TypeError('indices must be integers or slices')
 
 
 XYDataType = TypeVar('XYDataType', bound='XYData')
