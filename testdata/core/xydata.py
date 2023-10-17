@@ -4,8 +4,8 @@
 """Muodule for basic test data structure."""
 
 from __future__ import annotations
-from typing import (Union, Literal, TypeVar, Collection,
-                    Generic, Type, Any, NamedTuple, overload)
+from typing import (Union, Literal, TypeVar, Collection, Generator,
+                    Generic, Type, Any, NamedTuple, overload, final)
 import abc
 
 import numpy as np
@@ -41,6 +41,18 @@ class Storage(abc.ABC, Generic[ScalarType]):
 
     @abc.abstractmethod
     def __len__(self) -> int: pass
+
+    @final
+    def __iter__(self) -> Generator[ScalarType, None, None]:
+        for i in range(len(self)):
+            yield self[i]
+
+    @final
+    def __contains__(self, obj: ScalarType) -> bool:
+        for i in self:
+            if i == obj:
+                return True
+        return False
 
     def __array__(self) -> npt.NDArray:
         """Convert self to np.ndarray.

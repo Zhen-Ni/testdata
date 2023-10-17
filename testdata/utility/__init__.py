@@ -2,3 +2,4 @@
 
 from .tonal_frequency import *
 from .octave import *
+from .segmentation import *
