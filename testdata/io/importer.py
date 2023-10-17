@@ -9,6 +9,7 @@ All functions defined in this file used as interface should begin with
 
 from typing import Optional
 import functools
+import copy
 
 from scipy.io import wavfile, loadmat
 
@@ -83,6 +84,6 @@ def import_testlab_mat(filename: str,
 ) -> core.Section:
     """Import a section from matlab file exported by testlab."""
     name = filename if name is None else name
-    section = _import_testlab_mat_helper(filename)
+    section = copy.deepcopy(_import_testlab_mat_helper(filename))
     section.name = name
     return section
