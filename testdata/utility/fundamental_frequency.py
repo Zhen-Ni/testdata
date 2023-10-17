@@ -15,8 +15,8 @@ __all__ = ('find_fundamental', 'find_fundamental_hps',
 
 
 def find_fundamental_hps(spec: Spectrum,
-                         order: int,
-                         threshold: float | None = None) -> float:
+                   order: int,
+                   threshold: float | None = None) -> float:
     """Use HPS algorithm to estimate fundamental frequency.
 
     The Harmonic Product Spectrum (HPS) algorithm finds the
@@ -79,9 +79,9 @@ def find_fundamental_hps(spec: Spectrum,
 
 
 def find_fundamental_brute(spec: Spectrum,
-                           start: float,
-                           stop: float,
-                           step: float) -> float:
+                     start: float,
+                     stop: float,
+                     step: float) -> float:
     """Find fundamental tonal frequency by brute force.
 
     The spectrum is expressed by spl(f), where f is the frequency and
@@ -115,8 +115,8 @@ def find_fundamental_brute(spec: Spectrum,
 
 
 def find_fundamental_cepstrum(spec: Spectrum,
-                              start: float,
-                              stop: float):
+                        start: float,
+                        stop: float):
     """Use cepstrum to find fundamental tonal frequency.
 
     Parameters

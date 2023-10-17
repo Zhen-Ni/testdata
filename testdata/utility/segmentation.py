@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+"""Divide data into overlapping segments."""
+
+
 from typing import overload, Sequence
 import numpy as np
 import numpy.typing as npt

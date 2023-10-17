@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
 
-from .tonal_frequency import *
 from .octave import *
+from .fundamental_frequency import *
 from .segmentation import *

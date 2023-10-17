@@ -6,18 +6,15 @@ import numpy as np
 import testdata as td
 
 
-class TestTonalFrequency(unittest.TestCase):
+class TestFundamentalFrequency(unittest.TestCase):
     def test_alias(self):
-        self.assertTrue(td.find_tone is td.find_tone_hps)
+        self.assertTrue(td.find_fundamental is td.find_fundamental_hps)
 
     def test_hps(self):
-        sec = td.import_wav("./test/tone.wav")
+        sec = td.import_wav("./test/fundamental.wav")
         sec[0].derive(td.SpectrumChannel)
         spec = sec[0].get_spectrum()
-        start = 500
-        stop = 2000
-        step = 1.0
-        f = td.find_tone_hps(spec, 5)
+        f = td.find_fundamental_hps(spec, 5)
         self.assertEqual(f, 1165.0)
 
         # 50 Hz overtone with 10k Hz sampling frequency
@@ -28,23 +25,25 @@ class TestTonalFrequency(unittest.TestCase):
         x += 0.02 * np.sin(2 * np.pi * 50 * 1 * t)
         xydata = td.XYData(t, x)
         spec = td.get_spectrum(xydata)
-        f = td.utility.tonal_frequency.find_tone_hps(spec, 5, threshold=None)
+        f = td.utility.fundamental_frequency.find_fundamental_hps(
+            spec, 5, threshold=None)
         self.assertNotAlmostEqual(f,  50, msg='Not a useful test case')
         self.assertAlmostEqual(f / 50, round(f / 50),
                                msg='Result should be multiples of 50'
                                ' (factor > 1)')
-        f = td.utility.tonal_frequency.find_tone_hps(spec, 5, threshold=0.5)
+        f = td.utility.fundamental_frequency.find_fundamental_hps(
+            spec, 5, threshold=0.5)
         self.assertAlmostEqual(f, 50.)
 
     def test_brute(self):
-        sec = td.import_wav("./test/tone.wav")
+        sec = td.import_wav("./test/fundamental.wav")
         sec[0].derive(td.SpectrumChannel)
         spec = sec[0].get_spectrum()
         start = 500
         stop = 2000
         step = 1.0
-        f = td.utility.tonal_frequency.find_tone_brute(spec,
-                                                        start, stop, step)
+        f = td.utility.fundamental_frequency.find_fundamental_brute(
+            spec, start, stop, step)
         self.assertEqual(f, 1165.0)
 
     def test_ceps(self):
@@ -57,7 +56,8 @@ class TestTonalFrequency(unittest.TestCase):
         spec = td.get_spectrum(xydata)
         start = 40
         stop = 80
-        f = td.utility.tonal_frequency.find_tone_cepstrum(spec, start, stop)
+        f = td.utility.fundamental_frequency.find_fundamental_cepstrum(
+            spec, start, stop)
         self.assertAlmostEqual(f, 50.)
 
 

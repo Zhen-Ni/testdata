@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 from typing import (Union, Literal, TypeVar, Collection, Generator,
-                    Generic, Type, Any, NamedTuple, overload, final)
+                    Generic, Type, Any, overload, final)
 import abc
 
 import numpy as np
