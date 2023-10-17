@@ -115,6 +115,8 @@ class TestXYData(unittest.TestCase):
                                     np.array(b)[9:2:-1][::2]))
         self.assertEqual(pickle.loads(pickle.dumps(b)), b)
         self.assertEqual(pickle.loads(pickle.dumps(b[:5])), b[:5])
+        self.assertEqual(len(pickle.dumps([b, b[:2]])),
+                         len(pickle.dumps([b, b[:9][::2]])))
 
 
 if __name__ == '__main__':

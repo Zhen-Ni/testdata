@@ -66,7 +66,27 @@ class Storage(abc.ABC, Generic[ScalarType]):
         return not (self == other)
 
 
-class Array(Storage, Generic[ScalarType]):
+class ArrayBase(Storage, Generic[ScalarType]):
+    @abc.abstractmethod
+    def _asarray(self) -> npt.NDArray[ScalarType]:
+        """Access internal array storage."""
+        pass
+
+    def __array__(self) -> npt.NDArray[ScalarType]:
+        # Get a copy of self._array to avoid modification.
+        return self._asarray().copy()
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, ArrayBase):
+            if self.dtype != other.dtype:
+                return False
+            if len(self) != len(other):
+                return False
+            return (self._asarray() == other._asarray()).all()
+        return super().__eq__(other)
+
+
+class Array(ArrayBase, Generic[ScalarType]):
     """A wrapper for efficient data storage.
     """
 
@@ -83,6 +103,9 @@ class Array(Storage, Generic[ScalarType]):
     def dtype(self) -> Type[ScalarType]:
         return self._array.dtype.type
 
+    def _asarray(self) -> npt.NDArray:
+        return self._array
+
     @staticmethod
     def frombytes(b: bytes,
                   dtype: Union[Type[ScalarType], str,
@@ -90,10 +113,6 @@ class Array(Storage, Generic[ScalarType]):
                   ) -> Array[ScalarType]:
         array = np.frombuffer(b, dtype=dtype)
         return Array(array, dtype)
-
-    def __array__(self) -> npt.NDArray[ScalarType]:
-        # Get a copy of self._array to avoid modification.
-        return self._array.copy()
 
     def tobytes(self) -> bytes:
         return self._array.tobytes()
@@ -117,17 +136,8 @@ class Array(Storage, Generic[ScalarType]):
         return (self.__class__.frombytes,
                 (self.tobytes(), self.dtype))
 
-    def __eq__(self, other: Any) -> bool:
-        if isinstance(other, Array):
-            if self.dtype != other.dtype:
-                return False
-            if len(self) != len(other):
-                return False
-            return (self._array == other._array).all()
-        return super().__eq__(other)
 
-
-class ArraySlice(Storage, Generic[ScalarType]):
+class ArraySlice(ArrayBase, Generic[ScalarType]):
     __slots__ = ('_storage', '_start', '_step', '_size')
 
     def __init__(self, storage: Array, index: slice):
@@ -164,13 +174,13 @@ class ArraySlice(Storage, Generic[ScalarType]):
             return ArraySlice(self, index)
         raise TypeError('indices must be integers or slices')
 
-    def __array__(self) -> npt.NDArray[ScalarType]:
+    def _asarray(self) -> npt.NDArray[ScalarType]:
         start = self._start
         step = self._step
         stop = self._start + self._step * self._size
         if stop < 0:
             stop -= len(self._storage)
-        return self._storage._array[start: stop: step].copy()
+        return self._storage._array[start: stop: step]
 
 
 class RangedStorage(Storage, Generic[ScalarType]):
@@ -215,10 +225,6 @@ class RangedStorage(Storage, Generic[ScalarType]):
 
     def __len__(self) -> int:
         return self.size
-
-    def __reduce__(self):
-        return (self.__class__,
-                (self.size, self.step, self.start, self.dtype))
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, RangedStorage):
