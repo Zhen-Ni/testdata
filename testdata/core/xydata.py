@@ -4,8 +4,8 @@
 """Muodule for basic test data structure."""
 
 from __future__ import annotations
-from typing import (Union, Literal, Iterable, TypeVar,
-                    Generic, Type, Any)
+from typing import (Union, Literal, TypeVar, Collection,
+                    Generic, Type, Any, NamedTuple, overload)
 import abc
 
 import numpy as np
@@ -30,15 +30,19 @@ class Storage(abc.ABC, Generic[ScalarType]):
     @abc.abstractmethod
     def dtype(self) -> Type[ScalarType]: pass
 
+    @overload
+    def __getitem__(self, index: int) -> ScalarType: ...
+    @overload
+    def __getitem__(self, index: slice) -> Storage[ScalarType]: ...
+
     @abc.abstractmethod
-    def __getitem__(self, index: int | slice
-                    ) -> ScalarType | Storage[ScalarType]:
+    def __getitem__(self, index):
         pass
 
     @abc.abstractmethod
     def __len__(self) -> int: pass
 
-    def __array__(self) -> npt.NDArray[ScalarType]:
+    def __array__(self) -> npt.NDArray:
         """Convert self to np.ndarray.
 
         Derived classes are encouraged to overwrite this method
@@ -58,7 +62,7 @@ class Storage(abc.ABC, Generic[ScalarType]):
             if len(self) != len(other):
                 return False
             return (np.asarray(self) == np.asarray(other)).all()
-        if np.iterable(other):
+        if isinstance(other, Collection):
             return self == as_storage(other)
         return False
 
@@ -68,11 +72,11 @@ class Storage(abc.ABC, Generic[ScalarType]):
 
 class ArrayBase(Storage, Generic[ScalarType]):
     @abc.abstractmethod
-    def _asarray(self) -> npt.NDArray[ScalarType]:
+    def _asarray(self) -> npt.NDArray:
         """Access internal array storage."""
         pass
 
-    def __array__(self) -> npt.NDArray[ScalarType]:
+    def __array__(self) -> npt.NDArray:
         # Get a copy of self._array to avoid modification.
         return self._asarray().copy()
 
@@ -93,11 +97,11 @@ class Array(ArrayBase, Generic[ScalarType]):
     __slots__ = ('_array', )
 
     def __init__(self,
-                 iterable: Iterable[ScalarType],
+                 collection: Collection[ScalarType],
                  dtype: Union[Type[ScalarType], str,
                               npt.DTypeLike, None] = None):
         # Always copy the input iterable object.
-        self._array = np.array(iterable, dtype=dtype)
+        self._array = np.array(collection, dtype=dtype)
 
     @property
     def dtype(self) -> Type[ScalarType]:
@@ -120,17 +124,19 @@ class Array(ArrayBase, Generic[ScalarType]):
     def __len__(self) -> int:
         return len(self._array)
 
-    def __getitem__(self, index: int | slice
-                    ) -> ScalarType | ArraySlice[ScalarType]:
+    @overload
+    def __getitem__(self, index: int) -> ScalarType: ...
+    @overload
+    def __getitem__(self, index: slice) -> ArraySlice[ScalarType]: ...
+
+    def __getitem__(self, index):
         if isinstance(index, int):
             if -len(self) <= index < len(self):
                 return self._array[index]
-            else:
-                raise IndexError('list index out of range')
-        elif isinstance(index, slice):
+            raise IndexError('list index out of range')
+        if isinstance(index, slice):
             return ArraySlice(self, index)
-        else:
-            raise TypeError('indices must be integers or slices')
+        raise TypeError('indices must be integers or slices')
 
     def __reduce__(self):
         return (self.__class__.frombytes,
@@ -154,9 +160,12 @@ class ArraySlice(ArrayBase, Generic[ScalarType]):
     def __len__(self) -> int:
         return self._size
 
-    def __getitem__(self,
-                    index: int | slice
-                    ) -> ScalarType | ArraySlice:
+    @overload
+    def __getitem__(self, index: int) -> ScalarType: ...
+    @overload
+    def __getitem__(self, index: slice) -> ArraySlice[ScalarType]: ...
+
+    def __getitem__(self, index):
         if isinstance(index, int):
             if -len(self) <= index < len(self):
                 return self._storage[self._start + self._step * index]
@@ -174,7 +183,7 @@ class ArraySlice(ArrayBase, Generic[ScalarType]):
             return ArraySlice(self, index)
         raise TypeError('indices must be integers or slices')
 
-    def _asarray(self) -> npt.NDArray[ScalarType]:
+    def _asarray(self) -> npt.NDArray:
         start = self._start
         step = self._step
         stop = self._start + self._step * self._size
@@ -201,8 +210,8 @@ class RangedStorage(Storage, Generic[ScalarType]):
         self._size = int(size)
         self._dtype = np.dtype(np.result_type(step, start) if
                                dtype is None else dtype).type
-        self._step = self._dtype(step)
-        self._start = self._dtype(start)
+        self._step: ScalarType = self._dtype(step)
+        self._start: ScalarType = self._dtype(start)
 
     @property
     def size(self) -> int:
@@ -257,11 +266,15 @@ class LinRange(RangedStorage, Generic[ScalarType]):
         Data type for storage. None for auto detection. Defaults to None.
     """
 
-    def __array__(self) -> npt.NDArray[ScalarType]:
+    def __array__(self) -> npt.NDArray:
         return np.arange(self.size) * self.step + self.start
 
-    def __getitem__(self, index: int | slice
-                    ) -> ScalarType | LinRange[ScalarType]:
+    @overload
+    def __getitem__(self, index: int) -> ScalarType: ...
+    @overload
+    def __getitem__(self, index: slice) -> LinRange[ScalarType]: ...
+
+    def __getitem__(self, index):
         if isinstance(index, int):
             if -len(self) <= index < len(self):
                 if index < 0:
@@ -295,11 +308,15 @@ class LogRange(RangedStorage, Generic[ScalarType]):
         Data type for storage. None for auto detection. Defaults to None.
     """
 
-    def __array__(self) -> npt.NDArray[ScalarType]:
+    def __array__(self) -> npt.NDArray:
         return self.start * self.step ** np.arange(self.size)
 
-    def __getitem__(self, index: int | slice
-                    ) -> ScalarType | LogRange[ScalarType]:
+    @overload
+    def __getitem__(self, index: int) -> ScalarType: ...
+    @overload
+    def __getitem__(self, index: slice) -> LogRange[ScalarType]: ...
+
+    def __getitem__(self, index):
         if isinstance(index, int):
             if -len(self) <= index < len(self):
                 if index < 0:
@@ -314,10 +331,27 @@ class LogRange(RangedStorage, Generic[ScalarType]):
         raise TypeError('indices must be integers or slices')
 
 
+XType = TypeVar('XType', int, float, complex)
+YType = TypeVar('YType', int, float, complex)
+
 XYDataType = TypeVar('XYDataType', bound='XYData')
 
 
-class XYData:
+class XYPoint(Generic[XType, YType]):
+    def __init__(self, x: XType, y: YType):
+        self._x: XType = x
+        self._y: YType = y
+
+    @property
+    def x(self) -> XType:
+        return self._x
+
+    @property
+    def y(self) -> YType:
+        return self._y
+
+
+class XYData(Generic[XType, YType]):
     """Data structure for test data.
 
     TestData contains paired x and y values and additional
@@ -325,8 +359,8 @@ class XYData:
     """
 
     def __init__(self,
-                 x: Iterable,
-                 y: Iterable,
+                 x: Collection[XType],
+                 y: Collection[YType],
                  info: InfoDict = {},
                  ):
         _x = as_storage(x) if not isinstance(x, Storage) else x
@@ -337,10 +371,10 @@ class XYData:
         self._y = _y
         self._info = info
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} object> size: {len(self.x)}"
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._x)
 
     def derive(self,
@@ -353,11 +387,11 @@ class XYData:
         return self
 
     @property
-    def x(self) -> Storage:
+    def x(self) -> Storage[XType]:
         return self._x
 
     @property
-    def y(self) -> Storage:
+    def y(self) -> Storage[YType]:
         return self._y
 
     @property
@@ -370,18 +404,57 @@ class XYData:
     def __setstate__(self, state):
         self.__init__(*state)
 
-    def __eq__(self, other: XYData) -> bool:
-        return (self.x == other.x and
-                self.y == other.y and
-                self.info == other.info)
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, XYData):
+            return (self.x == other.x and
+                    self.y == other.y and
+                    self.info == other.info)
+        return False
+
+    @overload
+    def __getitem__(self, index: int) -> XYPoint[XType, YType]: ...
+    @overload
+    def __getitem__(self, index: slice) -> XYData[XType, YType]: ...
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return XYPoint(self.x[index], self.y[index])
+        if isinstance(index, slice):
+            x = self.x[index]
+            y = self.y[index]
+            return XYData(x, y)
+        raise TypeError('indices must be integers or slices')
 
 
-class Spectrum(XYData):
+class SpectrumPoint(XYPoint, Generic[XType, YType]):
+    @property
+    def f(self) -> XType:
+        return self.x
+
+    @property
+    def pxx(self) -> YType:
+        return self.y
+
+
+class Spectrum(XYData, Generic[XType, YType]):
     """Data structure for Spectrum.
 
     It is a wrapper for XYData, but with more functions for spectral
     analysis.
     """
+    @overload
+    def __getitem__(self, index: int) -> SpectrumPoint[XType, YType]: ...
+    @overload
+    def __getitem__(self, index: slice) -> Spectrum[XType, YType]: ...
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return SpectrumPoint(self.x[index], self.y[index])
+        if isinstance(index, slice):
+            x = self.x[index]
+            y = self.y[index]
+            return Spectrum(x, y)
+        raise TypeError('indices must be integers or slices')
 
     @property
     def df(self) -> Scalar:
@@ -457,7 +530,7 @@ class Spectrum(XYData):
 _AS_STORAGE_LENGTH_THRESHOLD = 5                  # must be larger than 3
 
 
-def as_storage(x: Iterable[ScalarType],
+def as_storage(x: Collection[ScalarType],
                dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                             None] = None
                ) -> Storage[ScalarType]:
@@ -467,24 +540,25 @@ def as_storage(x: Iterable[ScalarType],
     a = next(it)
     b = next(it)
     c = next(it)
+    result: Storage[ScalarType]
     if np.isclose(a + c, b + b):
         try:
             result = as_linrange(x, dtype)
-        except Exception:
+        except ValueError:
             pass
         else:
             return result
     elif np.isclose(b * b, a * c):
         try:
             result = as_logrange(x, dtype)
-        except Exception:
+        except ValueError:
             pass
         else:
             return result
     return Array(x, dtype)
 
 
-def as_linrange(x: Iterable[ScalarType],
+def as_linrange(x: Collection[ScalarType],
                 dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                              None] = None
                 ) -> LinRange[ScalarType]:
@@ -498,13 +572,13 @@ def as_linrange(x: Iterable[ScalarType],
     else:
         step = 0
     size = len(_x)
-    result = LinRange(size, step, start, dtype)
+    result: LinRange[ScalarType] = LinRange(size, step, start, dtype)
     if not np.allclose(_x, np.asarray(result)):
         raise ValueError('cannot construct LinRange object from given input')
     return result
 
 
-def as_logrange(x: Iterable[ScalarType],
+def as_logrange(x: Collection[ScalarType],
                 dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                              None] = None
                 ) -> LogRange[ScalarType]:
@@ -518,7 +592,7 @@ def as_logrange(x: Iterable[ScalarType],
     else:
         step = 0
     size = len(_x)
-    result = LogRange(size, step, start, dtype)
+    result: LogRange[ScalarType] = LogRange(size, step, start, dtype)
     if not np.allclose(_x, np.asarray(result)):
         raise ValueError('cannot construct LogRange object from given input')
     return result

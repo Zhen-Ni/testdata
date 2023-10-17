@@ -31,12 +31,18 @@ class TestXYData(unittest.TestCase):
         fd2 = pickle.loads(pickle.dumps(fd))
         self.assertTrue(np.allclose(x, fd2.x))
         self.assertTrue(np.allclose(y, fd2.y))
+        fd3 = fd[::2]
+        self.assertTrue(np.allclose(x[::2], fd3.x))
+        self.assertTrue(np.allclose(y[::2], fd3.y))
 
     def test_Spectrum(self):
         x = np.linspace(0, 100, 1001)
         y = np.random.random(len(x))
         fd = td.Spectrum(x, y)
         self.assertTrue(np.allclose(fd.pxx, y))
+        fd2 = fd[::2]
+        self.assertTrue(np.allclose(x[::2], fd2.x))
+        self.assertTrue(np.allclose(y[::2], fd2.y))
 
     def test_derive(self):
         x = np.linspace(0, 100, 1001)
