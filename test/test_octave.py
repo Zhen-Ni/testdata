@@ -40,9 +40,9 @@ class TestOctave(unittest.TestCase):
         res = ob.power(data, kind='linear')
         fm = np.asarray(res.x)
         power = np.asarray(res.y)
-        self.assertAlmostEqual(power[ob.index(fm) == -1][0], 0)
-        self.assertAlmostEqual(power[ob.index(fm) == 0][0], 2.5)
-        self.assertAlmostEqual(power[ob.index(fm) == 1][0], 8)
+        self.assertAlmostEqual(power[np.asarray(ob.index(fm)) == -1][0], 0)
+        self.assertAlmostEqual(power[np.asarray(ob.index(fm)) == 0][0], 2.5)
+        self.assertAlmostEqual(power[np.asarray(ob.index(fm)) == 1][0], 8)
 
 
 if __name__ == '__main__':

@@ -3,29 +3,27 @@
 """Divide data into overlapping segments."""
 
 
-from typing import overload, Sequence
-import numpy as np
-import numpy.typing as npt
-from ..core import XYData, LinRange
+from typing import overload
+from ..core import ArrayLike, XYData, LinRange, Storage, as_storage
 
 
 __all__ = ('segment',)
 
 
 @overload
-def segment(xydata: XYData,
+def segment(data: XYData,
             length: int,
             hop_length: int,
-            window: npt.NDArray | None = ...,
+            window: ArrayLike | None = ...,
             ) -> list[XYData]: ...
 
 
 @overload
-def segment(xydata: Sequence,
+def segment(data: ArrayLike,
             length: int,
             hop_length: int,
-            window: npt.NDArray | None = ...,
-            ) -> list[npt.NDArray]: ...
+            window: ArrayLike | None = ...,
+            ) -> Storage: ...
 
 
 def segment(data, length, hop_length, window=None):
@@ -34,7 +32,9 @@ def segment(data, length, hop_length, window=None):
         if not isinstance(data.x, LinRange):
             raise ValueError('xydata input should have linranged x')
     else:
-        data = np.asarray(data)
+        data = as_storage(data)
+    if window is not None:
+        window = as_storage(window)
     data_length = len(data)
     datas = []
     n_segments = (data_length - length) // hop_length + 1

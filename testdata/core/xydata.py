@@ -4,26 +4,29 @@
 """Muodule for basic test data structure."""
 
 from __future__ import annotations
-from typing import (Union, Literal, TypeVar, Collection, Generator,
+from typing import (Union, Literal, TypeVar, Collection, Sequence,
                     Generic, Type, Any, overload, final)
 import abc
 
 import numpy as np
+from numpy.lib.mixins import NDArrayOperatorsMixin
 import numpy.typing as npt
 
 from .misc import Scalar, InfoDict, cached_property, parse_slice
 
 
-__all__ = ('Array', 'LinRange', 'LogRange',
+__all__ = ('ArrayLike',
+           'Storage', 'Array', 'LinRange', 'LogRange',
            'XYData', 'Spectrum',
            'as_storage', 'as_linrange', 'as_logrange'
            )
 
 
 ScalarType = TypeVar('ScalarType', int, float, complex)
+ArrayLike = Sequence[ScalarType] | Collection[ScalarType]
 
 
-class Storage(abc.ABC, Generic[ScalarType]):
+class Storage(Sequence, NDArrayOperatorsMixin, Generic[ScalarType]):
     __slots__ = ()
 
     @property
@@ -42,26 +45,6 @@ class Storage(abc.ABC, Generic[ScalarType]):
     @abc.abstractmethod
     def __len__(self) -> int: pass
 
-    @final
-    def __iter__(self) -> Generator[ScalarType, None, None]:
-        for i in range(len(self)):
-            yield self[i]
-
-    @final
-    def __contains__(self, obj: ScalarType) -> bool:
-        for i in self:
-            if i == obj:
-                return True
-        return False
-
-    def __array__(self) -> npt.NDArray:
-        """Convert self to np.ndarray.
-
-        Derived classes are encouraged to overwrite this method
-        to improve performance.
-        """
-        return np.array(self, dtype=self.dtype)
-
     def __repr__(self) -> str:
         return (f"<{self.__class__.__name__} object> "
                 f"size: {len(self)}, "
@@ -74,12 +57,36 @@ class Storage(abc.ABC, Generic[ScalarType]):
             if len(self) != len(other):
                 return False
             return (np.asarray(self) == np.asarray(other)).all()
-        if isinstance(other, Collection):
+        if isinstance(other, Sequence):
             return self == as_storage(other)
         return False
 
     def __ne__(self, other: Any) -> bool:
         return not (self == other)
+
+    def __array__(self, dtype: Union[Type[ScalarType], str,
+                                     npt.DTypeLike, None] = None
+                  ) -> npt.NDArray:
+        """Convert self to np.ndarray.
+
+        Always copy the internal storage to avoid modification.Derived
+        classes are encouraged to overwrite this method to improve
+        performance.
+        """
+        if dtype is None:
+            dtype = self.dtype
+        return np.array(list(self), dtype=dtype)
+
+    def __array_ufunc__(self, ufunc, method, *args, **kwargs) -> Storage:
+        """Add support for numpy universal function calls."""
+        inputs = []
+        for arg in args:
+            if isinstance(arg, Storage):
+                inputs.append(np.asarray(arg))
+            else:
+                inputs.append(arg)
+        result_array = getattr(ufunc, method)(*inputs, **kwargs)
+        return as_storage(result_array)
 
 
 class ArrayBase(Storage, Generic[ScalarType]):
@@ -88,9 +95,14 @@ class ArrayBase(Storage, Generic[ScalarType]):
         """Access internal array storage."""
         pass
 
-    def __array__(self) -> npt.NDArray:
+    @final
+    def __array__(self, dtype: Union[Type[ScalarType], str,
+                                     npt.DTypeLike, None] = None
+                  ) -> npt.NDArray:
         # Get a copy of self._array to avoid modification.
-        return self._asarray().copy()
+        if dtype is None:
+            return self._asarray().copy()
+        return np.array(self._asarray, dtype=dtype)
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, ArrayBase):
@@ -109,11 +121,14 @@ class Array(ArrayBase, Generic[ScalarType]):
     __slots__ = ('_array', )
 
     def __init__(self,
-                 collection: Collection[ScalarType],
+                 array: ArrayLike[ScalarType],
                  dtype: Union[Type[ScalarType], str,
                               npt.DTypeLike, None] = None):
         # Always copy the input iterable object.
-        self._array = np.array(collection, dtype=dtype)
+        if (isinstance(array, Collection) and
+                not isinstance(array, Sequence)):
+            array = list(array)
+        self._array = np.array(array, dtype=dtype)
 
     @property
     def dtype(self) -> Type[ScalarType]:
@@ -278,8 +293,13 @@ class LinRange(RangedStorage, Generic[ScalarType]):
         Data type for storage. None for auto detection. Defaults to None.
     """
 
-    def __array__(self) -> npt.NDArray:
-        return np.arange(self.size) * self.step + self.start
+    def __array__(self, dtype: Union[Type[ScalarType], str,
+                                     npt.DTypeLike, None] = None
+                  ) -> npt.NDArray:
+        result = np.arange(self.size, dtype=self.dtype)
+        result *= self.step
+        result += self.start
+        return result
 
     @overload
     def __getitem__(self, index: int) -> ScalarType: ...
@@ -320,8 +340,11 @@ class LogRange(RangedStorage, Generic[ScalarType]):
         Data type for storage. None for auto detection. Defaults to None.
     """
 
-    def __array__(self) -> npt.NDArray:
-        return self.start * self.step ** np.arange(self.size)
+    def __array__(self, dtype: Union[Type[ScalarType], str,
+                                     npt.DTypeLike, None] = None
+                  ) -> npt.NDArray:
+        result = self.start * self.step ** np.arange(self.size)
+        return np.asarray(result, dtype=self.dtype)
 
     @overload
     def __getitem__(self, index: int) -> ScalarType: ...
@@ -333,7 +356,7 @@ class LogRange(RangedStorage, Generic[ScalarType]):
             if -len(self) <= index < len(self):
                 if index < 0:
                     index = len(self) + index
-                return self.start + self.step * index
+                return self.start * self.step ** index
             raise IndexError('list index out of range')
         if isinstance(index, slice):
             size, step, start = parse_slice(self.size, index)
@@ -371,16 +394,16 @@ class XYData(Generic[XType, YType]):
     """
 
     def __init__(self,
-                 x: Collection[XType],
-                 y: Collection[YType],
+                 x: ArrayLike[XType],
+                 y: ArrayLike[YType],
                  info: InfoDict = {},
                  ):
         _x = as_storage(x) if not isinstance(x, Storage) else x
         _y = as_storage(y) if not isinstance(y, Storage) else y
         if len(_x) != len(_y):
             raise ValueError('length of x and y should be the same')
-        self._x = _x
-        self._y = _y
+        self._x: Storage[XType] = _x
+        self._y: Storage[YType] = _y
         self._info = info
 
     def __repr__(self) -> str:
@@ -483,7 +506,7 @@ class Spectrum(XYData, Generic[XType, YType]):
         return np.asarray(self.y)
 
     @cached_property
-    def decibel(self) -> npt.NDArray:
+    def decibel(self) -> Storage:
         """Get the decibel.
 
         The decibel is calculated using the item with key 's_ref'
@@ -501,7 +524,7 @@ class Spectrum(XYData, Generic[XType, YType]):
         return get_decibel(self.pxx, s_ref)
 
     @cached_property
-    def spl(self) -> npt.NDArray:
+    def spl(self) -> Storage:
         """Get the sound power level (SPL).
 
         The sound pressure level is calculated using the item with key
@@ -542,7 +565,7 @@ class Spectrum(XYData, Generic[XType, YType]):
 _AS_STORAGE_LENGTH_THRESHOLD = 5                  # must be larger than 3
 
 
-def as_storage(x: Collection[ScalarType],
+def as_storage(x: ArrayLike[ScalarType],
                dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                             None] = None
                ) -> Storage[ScalarType]:
@@ -570,13 +593,13 @@ def as_storage(x: Collection[ScalarType],
     return Array(x, dtype)
 
 
-def as_linrange(x: Collection[ScalarType],
+def as_linrange(x: ArrayLike[ScalarType],
                 dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                              None] = None
                 ) -> LinRange[ScalarType]:
     if isinstance(x, LinRange):
         return LinRange(x.size, x.step, x.start, x.dtype)
-    _x = tuple(x)
+    _x = list(x)
     start = _x[0]
     stop = _x[-1]
     if len(_x) != 1:
@@ -590,13 +613,13 @@ def as_linrange(x: Collection[ScalarType],
     return result
 
 
-def as_logrange(x: Collection[ScalarType],
+def as_logrange(x: ArrayLike[ScalarType],
                 dtype: Union[Type[ScalarType], str, npt.DTypeLike,
                              None] = None
                 ) -> LogRange[ScalarType]:
     if isinstance(x, LogRange):
         return LogRange(x.size, x.step, x.start, x.dtype)
-    _x = tuple(x)
+    _x = list(x)
     start = _x[0]
     stop = _x[-1]
     if len(_x) != 1:

@@ -67,6 +67,6 @@ def read_pnginfo(filename: str) -> core.XYData | None:
     data = img.info.get('data')
     img.close()
     if data is None:
-        return
+        return None
     data = base64.b85decode(data)
     return pickle.loads(data)

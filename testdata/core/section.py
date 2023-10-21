@@ -29,7 +29,7 @@ class Section:
     """
     def __init__(self,
                  name: Optional[str] = None,
-                 records: InfoDict = None,
+                 records: Optional[InfoDict] = None,
                  channels: Iterable[Channel] = ()
                  ):
         self._name = DEFAULT_NAME if name is None else name

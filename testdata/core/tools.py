@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
+from typing import Optional, Literal, Union, overload
 import numpy as np
 import numpy.typing as npt
-from typing import Optional, Literal, Union, overload, Iterable
-import scipy.signal as signal
+from scipy import signal
 
-from .xydata import Spectrum, XYData, Storage, as_linrange
+from .xydata import (ArrayLike, Spectrum, XYData, Storage,
+                     as_linrange, as_storage)
 from .misc import as_int
 
 
@@ -22,9 +23,9 @@ def get_decibel(s: float,
 
 
 @overload
-def get_decibel(s: Iterable[float],
+def get_decibel(s: ArrayLike[float],
                 s_ref: float = ...
-                ) -> npt.NDArray[float]: ...
+                ) -> Storage[float]: ...
 
 
 @overload
@@ -41,21 +42,22 @@ def get_decibel(s, s_ref=1.):
 
     Parameters
     ----------
-    s : float or array_like or XYData object
+    s : float or Collection or XYData object
         Signal intensity or power.
     s_ref: float, optional
         Reference signal intensity or power.
 
     Returns
     -------
-    signal_level: float or array_like or XYData
+    signal_level: float or Storage or XYData
         Decibel of the input signal.
     """
     if isinstance(s, XYData):
         y = get_decibel(s.y, s_ref)
         return XYData(s.x, y).derive(type(s))
-    else:
-        return 10 * np.log10(abs(np.asarray(s) / s_ref))
+    if np.iterable(s):
+        return 10 * np.log10(abs(as_storage(s) / s_ref))
+    return 10 * np.log10(abs(s / s_ref))
 
 
 @overload
@@ -66,10 +68,10 @@ def get_spl(p: float,
 
 
 @overload
-def get_spl(p: Iterable[float],
+def get_spl(p: ArrayLike[float],
             type: Literal['power', 'pressure'] = ...,
             p_ref: Optional[float] = ...
-            ) -> npt.NDArray[float]: ...
+            ) -> Storage[float]: ...
 
 
 @overload
@@ -95,7 +97,7 @@ def get_spl(p, type='power', p_ref=None):
 
     Parameters
     ----------
-    p : float or array_like or XYData object
+    p : float or Storage or XYData object
         Sound power or sound pressure.
     type : {'power', 'pressure'}, optional
         Selects between calculating the sound power level and sound
@@ -103,14 +105,18 @@ def get_spl(p, type='power', p_ref=None):
     p_ref: float, optional
         The reference sound power/pressure for calculating SPL. Defaults
         to 2e-5.
+
+    Returns
+    -------
+    signal_level: float or Storage or XYData
+        Sound pressure level of the input signal.
     """
     p_ref = P_REF if p_ref is None else p_ref
     if type == 'power':
         return get_decibel(p, p_ref ** 2)
-    elif type == 'pressure':
+    if type == 'pressure':
         return 2 * get_decibel(p, p_ref)
-    else:
-        raise ValueError("type must be 'power' or 'pressure'.")
+    raise ValueError("type must be 'power' or 'pressure'.")
 
 
 def psd(x: Storage,

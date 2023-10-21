@@ -69,6 +69,7 @@ class SectionDB:
     ----------
     [1] About URI: https://www.sqlite.org/uri.html
     """
+
     def __init__(self,
                  dbname: str,
                  mode: Literal['ro', 'rw', 'rwc', 'memory'] = 'ro',
@@ -97,7 +98,7 @@ class SectionDB:
         if self._cur is None:
             self._cur = self.con.cursor()
         return self._cur
-        
+
     def connect(self) -> None:
         if self._con is not None:
             self.close()
@@ -126,7 +127,7 @@ class SectionDB:
     def vacuum(self) -> None:
         """Shrink the size of the database."""
         self.cur.execute('VACUUM')
-            
+
     def __enter__(self) -> SectionDB:
         self.connect()
         return self

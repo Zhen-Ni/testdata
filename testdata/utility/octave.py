@@ -6,7 +6,8 @@ from typing import Literal, Optional, Iterable, overload
 import numpy as np
 import numpy.typing as npt
 
-from ..core import LogRange, SpectrumChannel, Spectrum
+from ..core import (ArrayLike, LogRange, SpectrumChannel, Spectrum,
+                    Storage, as_storage, Array)
 from ..core.misc import as_int
 
 __all__ = ('OctaveBand', )
@@ -84,26 +85,23 @@ class OctaveBand:
                           index: int) -> float: ...
 
     @overload
-    def midband_frequency(self,
-                          index: Iterable[int]) -> npt.NDArray[float]: ...
+    def midband_frequency(self, index: ArrayLike[int]) -> Array[float]: ...
 
-    def midband_frequency(self,
-                          index: int | Iterable[int]
-                          ) -> float | npt.NDArray[float]:
+    def midband_frequency(self, index):
         """Get the midband frequency of the given index.
 
         Parameters
         ----------
-        index : int or Iterable[int]
+        index : int or Collection[int]
             The index of the octave band.
 
         Returns
         -------
-        fm : float or np.ndarray
+        fm : float or Array
             The midband frequency.
         """
         if np.iterable(index):
-            index = np.asarray(index)
+            index = as_storage(index)
         if self._inv_designator & 1:  # odd
             fm = self._factor ** (2 * index) * self._fr
         else:                   # even
@@ -115,24 +113,22 @@ class OctaveBand:
 
     @overload
     def bandedge_frequency(self,
-                           index: Iterable[int]
-                           ) -> tuple[npt.NDArray[float], npt.NDArray[float]]: ...
+                           index: ArrayLike[int]
+                           ) -> tuple[Array[float], Array[float]]: ...
 
-    def bandedge_frequency(self,
-                           index: int | Iterable[int]
-                           ) -> tuple[float, float] | tuple[npt.NDArray[float], npt.NDArray[float]]:
+    def bandedge_frequency(self, index):
         """Get the bandedge frequenc.
 
        Parameters
         ----------
-        index : int or Iterable[int]
+        index : int or Collection[int]
             The index of the octave band.
 
         Returns
         -------
-        f1 : float or np.ndarray
+        f1 : float or Array
             The lower bandedge frequency.
-        f2 : float or np.ndarray
+        f2 : float or Array
             The upper bandedge frequency.
         """
         fm = self.midband_frequency(index)
@@ -144,20 +140,18 @@ class OctaveBand:
     def index(self, frequency: float) -> int: ...
 
     @overload
-    def index(self, frequency: Iterable[float]) -> npt.NDArray[int]: ...
+    def index(self, frequency: ArrayLike[float]) -> Storage[int]: ...
 
-    def index(self,
-              frequency: float | Iterable[float]
-              ) -> int | npt.NDArray[int]:
+    def index(self, frequency):
         """Get the octave index band of the given frequency."""
         quotient = frequency / self._fr
         index = np.log(quotient) / np.log(self.octave_ratio)
         if self._inv_designator & 1:  # odd
-            index *= self._inv_designator
+            index = index * self._inv_designator
         else:                   # even
-            index *= self._inv_designator - 0.5
+            index = index * self._inv_designator - 0.5
         if np.iterable(frequency):
-            return np.array(np.round(index), dtype=int)
+            return as_storage(np.round(index), dtype=int)
         else:
             return as_int(index)
 
