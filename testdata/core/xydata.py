@@ -506,7 +506,7 @@ class Spectrum(XYData, Generic[XType, YType]):
         return np.asarray(self.y)
 
     @cached_property
-    def decibel(self) -> Storage:
+    def decibel(self) -> npt.NDArray:
         """Get the decibel.
 
         The decibel is calculated using the item with key 's_ref'
@@ -521,10 +521,10 @@ class Spectrum(XYData, Generic[XType, YType]):
         s_ref = self.info.get('s_ref')
         if s_ref is None:
             raise AttributeError('s_ref is not defined')
-        return get_decibel(self.pxx, s_ref)
+        return np.asarray(get_decibel(self.pxx, s_ref))
 
     @cached_property
-    def spl(self) -> Storage:
+    def spl(self) -> npt.NDArray:
         """Get the sound power level (SPL).
 
         The sound pressure level is calculated using the item with key
@@ -536,7 +536,8 @@ class Spectrum(XYData, Generic[XType, YType]):
         get_spl, get_decibel
         """
         from .tools import get_spl
-        return get_spl(self.pxx, 'power', p_ref=self.info.get('p_ref'))
+        return np.asarray(get_spl(self.pxx, 'power',
+                                  p_ref=self.info.get('p_ref')))
 
     @staticmethod
     def from_time_data(xydata: XYData,

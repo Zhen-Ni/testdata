@@ -5,17 +5,20 @@ from typing import overload
 import numpy as np
 from scipy import signal
 
-from ..core import Storage, ArrayLike, XYData, LinRange, as_storage
+from ..core import (Storage, ArrayLike, XYData, Spectrum, LinRange,
+                    as_storage)
 
+
+__all__ = ('get_broadband_empirical', )
 
 BROADBAND_EMPITICAL_THRESHOLD = 1.5
 
 
 @overload
-def get_broadband_empirical(data: XYData,
+def get_broadband_empirical(data: Spectrum,
                             order: int,
                             threshold: float = ...
-                            ) -> XYData: ...
+                            ) -> Spectrum: ...
 
 
 @overload
@@ -43,6 +46,6 @@ def get_broadband_empirical(data,
         index = abs(filtered_y / y_ref) > threshold
         filtered_y[index] = y_ref[index]
     if isinstance(data, XYData):
-        return XYData(data.x, filtered_y)
+        return Spectrum(data.x, filtered_y)
     else:
         return as_storage(filtered_y)
