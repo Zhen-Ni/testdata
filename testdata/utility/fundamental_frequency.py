@@ -16,6 +16,8 @@ __all__ = ('find_fundamental', 'find_fundamental_hps',
 
 def find_fundamental_hps(spec: Spectrum,
                          order: int,
+                         start: float | None = None,
+                         stop: float | None = None,
                          threshold: float | None = None) -> float:
     """Use HPS algorithm to estimate fundamental frequency.
 
@@ -39,6 +41,8 @@ def find_fundamental_hps(spec: Spectrum,
         The spectrum to process.
     order: int
         The number of harmonics being considered.
+    start, stop: float or None
+        The bounds for estimating the fundamental frequency.
     threshold: float or None, optional
         The threshold used to correct octave error, between 0 and 1.
         If None is given, octave error is not corrected. defaults to
@@ -54,7 +58,11 @@ def find_fundamental_hps(spec: Spectrum,
     [1] http://musicweb.ucsd.edu/~trsmyth/analysis/Harmonic_Product_Spectrum.html
     """
     freq_start = spec.f[0]
+    if start is not None:
+        freq_start = max(freq_start, start)
     freq_stop = spec.f[-1] / order
+    if stop is not None:
+        freq_stop = min(freq_stop, stop)
     divisor = functools.reduce(np.lcm, range(1, order+1))
     freq_step = spec.df / divisor
     freq = np.arange(freq_start, freq_stop, freq_step)
